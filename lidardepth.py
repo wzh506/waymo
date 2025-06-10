@@ -28,10 +28,15 @@ def image_show(data, name, layout, cmap=None):
 
 # FILENAME = 'tutorial/frames'
 # TODO: Change this to your own setting
-filepath = '/media/wzh/datasets/openlane/waymo/segment-11392401368700458296_1086_429_1106_429_with_camera_labels.tfrecord'
+# filepath = '/media/wzh/datasets/openlane/waymo/segment-11392401368700458296_1086_429_1106_429_with_camera_labels.tfrecord'
+filepath= 'segment-11392401368700458296_1086_429_1106_429_with_camera_labels.tfrecord'
 FILENAME = filepath
+gpus = tf.config.list_physical_devices('GPU')
+tf.config.set_logical_device_configuration(
+    gpus[0],
+    [tf.config.LogicalDeviceConfiguration(memory_limit=4*1024)])
+dataset = tf.data.TFRecordDataset(filepath, compression_type='') #load这个要20G
 
-dataset = tf.data.TFRecordDataset(FILENAME, compression_type='') #load这个要20G
 for data in dataset:
     frame = open_dataset.Frame()
     frame.ParseFromString(bytearray(data.numpy()))
@@ -159,10 +164,10 @@ def show_range_image(range_image, layout_index_start = 1):
                    [8, 1, layout_index_start + 2], vmax=1.5, cmap='gray')
 frame.lasers.sort(key=lambda laser: laser.name)
 show_range_image(get_range_image(open_dataset.LaserName.TOP, 0), 1)
-# plt.show()
+plt.show()
 
 show_range_image(get_range_image(open_dataset.LaserName.TOP, 1), 4)
-# plt.show()
+plt.show()
 # cp waymo-open-dataset/bazel-genfiles/waymo_open_dataset/label_pb2.py waymo-open-dataset/waymo_open_dataset/label_pb2.py
 
 def convert_range_image_to_point_cloud(frame,
@@ -519,7 +524,7 @@ output=gt_depths[0]
 depth_colored = cv2.applyColorMap(cv2.normalize(output.cpu().numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U),cv2.COLORMAP_MAGMA)
 # print("save to", ops.join(save_dir, new_name.replace("/", "_")))
 # fig3.savefig(ops.join(save_dir, new_name.replace("/", "_")))
-save_dir='/home/wzh/study/github/bev/BEVDepth'
+# save_dir='/home/wzh/study/github/bev/BEVDepth'
 # save_dir2= os.path.join(save_dir, "depth")
 cv2.imwrite('depth.png', depth_colored)
 # cv2.imwrite(ops.join(save_dir2, 'depth.png'), depth_colored)
@@ -570,17 +575,17 @@ with torch.no_grad():
         align_corners=False,
     ).squeeze()
 
-output = prediction.detach().cpu()
+output2 = prediction.detach().cpu()
 
 #还是先生维，后降维把
 
 
 # 假设你的输入张量名为 img_tensor
 # img_tensor 大小为 (1280, 1920)
-print("原始尺寸:", output.shape)
+print("原始尺寸:", output2.shape)
 
 # 步骤1: 降维2倍，大小变为 (640, 960)
-downsampled_2x = F.interpolate(output.unsqueeze(0).unsqueeze(0), 
+downsampled_2x = F.interpolate(output2.unsqueeze(0).unsqueeze(0), 
                              scale_factor=resize, 
                              mode='bilinear',
                              align_corners=False).squeeze()
@@ -601,23 +606,29 @@ downsampled_8x = F.interpolate(cropped.unsqueeze(0).unsqueeze(0),
                              mode='bilinear',
                              align_corners=False).squeeze()
 print("降维8倍后尺寸:", downsampled_8x.shape)
-output= downsampled_8x
+output2 = downsampled_8x
 
 img_name ='depth_pred'
 fig = plt.figure()
-plt.imshow(output)
+plt.imshow(output2)
 path_part, dot, ext = img_name.rpartition('.')
 new_name = f"{path_part}_infer_depth.png" #把后缀改为pdf，否则用{ext}# 保持为
-maximum = np.max(output)
-minimum = np.min(output)
+maximum = np.max(output2)
+minimum = np.min(output2)
 # depth_map = output/maximum #用最大值做归一化,但是不需要
-depth_colored = cv2.applyColorMap(cv2.normalize(output.numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U),cv2.COLORMAP_MAGMA)
+depth_colored = cv2.applyColorMap(cv2.normalize(output2.numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U),cv2.COLORMAP_MAGMA)
+#这里这个注意和上面的output做对比
+
+output_gt = cv2.normalize(output.numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+output_pred = cv2.normalize(output2.numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+
 # print("save to", ops.join(save_dir, new_name.replace("/", "_")))
 # fig3.savefig(ops.join(save_dir, new_name.replace("/", "_")))
-save_dir2= os.path.join(save_dir, "depth")
-if not os.path.exists(save_dir2):
-    os.makedirs(save_dir2)
-cv2.imwrite(ops.join(save_dir2, new_name.replace("/", "_")), depth_colored)
+# save_dir2= os.path.join(save_dir, "depth")
+# if not os.path.exists(save_dir2):
+#     os.makedirs(save_dir2)
+# cv2.imwrite(ops.join(save_dir2, new_name.replace("/", "_")), depth_colored)
+cv2.imwrite('depth_pred.png', depth_colored)
 
 
 #
