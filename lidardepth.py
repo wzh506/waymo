@@ -675,7 +675,76 @@ cv2.imwrite('depth_pred.png', depth_colored)
 
 
 # 把这个reversed_normalized和上面的ouput进行比较然后输出
+####################################################################################
+# 创建天空区域掩码（output为0的区域）
+valid_mask = (output != 0)
+def constrain_error(reversed_normalized, output, threshold=0.2):
+    # 创建输出副本
+    result = reversed_normalized.copy()
+    
+    # 仅处理有效区域
+    for i in range(output.shape[0]):
+        for j in range(output.shape[1]):
+            if valid_mask[i, j]:
+                gt_val = output[i, j]
+                pred_val = result[i, j]
+                
+                # 计算允许范围
+                lower = gt_val * (1 - threshold)
+                upper = gt_val * (1 + threshold)
+                
+                # 限制预测值在允许范围内
+                if pred_val < lower:
+                    result[i, j] = lower
+                elif pred_val > upper:
+                    result[i, j] = upper
+                    
+    return result
 
+
+def vectorized_constrain(reversed_normalized, output, threshold=0.2):
+    result = reversed_normalized.copy()
+    gt = output[valid_mask]
+    pred = result[valid_mask]
+    
+    # 计算上下限
+    lower = gt * (1 - threshold)
+    upper = gt * (1 + threshold)
+    
+    # 应用约束
+    pred = np.clip(pred, lower, upper)
+    result[valid_mask] = pred
+    
+    return result
+
+# 设置误差阈值（20%）
+ERROR_THRESHOLD = 0.9  # 20% relative error
+
+# 设置最大深度（用于可视化）
+MAX_DEPTH = 148.0  # LiDAR最大探测距离
+
+constrained_depth = vectorized_constrain(reversed_normalized, output, ERROR_THRESHOLD)
+depth_colored = cv2.applyColorMap(constrained_depth , cv2.COLORMAP_MAGMA)
+
+# 保存结果
+cv2.imwrite('depth_pred_fixed2.png', depth_colored)
+
+
+depth_colored = cv2.applyColorMap(reversed_normalized , cv2.COLORMAP_MAGMA)
+
+# 保存结果
+cv2.imwrite('depth_pred_fixed.png', depth_colored)
+
+
+
+
+
+
+
+
+
+
+####################################################################################
 ####################################################
 #output和output2
 #
