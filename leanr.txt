@@ -4,3 +4,37 @@ segment-10212406498497081993_5300_000_5320_000_with_camera_labels
 
 2.生成深度图的代码：
 在lidardepth.py中
+
+准备处理的数据：
+
+
+curve case 曲线案例：
+segment-12940710315541930162_2660_000_2680_000_with_camera_labels
+segment-18045724074935084846_6615_900_6635_900_with_camera_labels
+T T
+extreme weather case 极端天气：
+segment-13694146168933185611_800_000_820_000_with_camera_labels
+segment-18305329035161925340_4466_730_4486_730_with_camera_labels
+T难  T
+intersection case 交叉口案例：
+segment-1906113358876584689_1359_560_1379_560_with_camera_labels
+segment-4246537812751004276_1560_000_1580_000_with_camera_labels
+T T
+merge split case 合并拆分案例：
+segment-14262448332225315249_1280_000_1300_000_with_camera_labels
+segment-18252111882875503115_378_471_398_471_with_camera_labels
+T  T
+night case 夜间情况：
+segment-14107757919671295130_3546_370_3566_370_with_camera_labels
+segment-17791493328130181905_1480_000_1500_000_with_camera_labels
+No No
+up down case 上下坡：
+segment-7650923902987369309_2380_000_2400_000_with_camera_labels
+segment-17612470202990834368_2800_000_2820_000_with_camera_labels
+T（适合深度）  T（适合深度）
+选择上下坡和遮挡的情况
+
+遮挡
+segment-447576862407975570_4360_000_4380_000_with_camera_labels
+segment-1457696187335927618_595_027_615_027_with_camera_labels
+segment-4690718861228194910_1980_000_2000_000_with_camera_labels

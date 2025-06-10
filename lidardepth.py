@@ -7,6 +7,7 @@ import numpy as np
 import itertools
 import matplotlib.pyplot as plt
 
+
 # TODO: Change this to your own setting
 os.environ['PYTHONPATH']='/env/python:~/github/waymo-open-dataset'
 m=imp.find_module('waymo_open_dataset', ['.'])
@@ -25,16 +26,28 @@ def image_show(data, name, layout, cmap=None):
   plt.axis('off')
 
 # read one frame
-
+# CUDA_VISIBLE_DEVICES=1
 # FILENAME = 'tutorial/frames'
 # TODO: Change this to your own setting
-filepath = '/media/wzh/datasets/openlane/waymo/segment-11392401368700458296_1086_429_1106_429_with_camera_labels.tfrecord'
-# filepath= 'segment-11392401368700458296_1086_429_1106_429_with_camera_labels.tfrecord'
+# filepath = '/media/wzh/datasets/openlane/waymo/segment-11392401368700458296_1086_429_1106_429_with_camera_labels.tfrecord'
+filepath= 'individual_files_validation_segment-18305329035161925340_4466_730_4486_730_with_camera_labels.tfrecord'
+imgname= filepath.rsplit('.', 1)[0]
+imgname = os.path.join('Depth', imgname) #保存的文件夹
+if not os.path.exists(imgname):
+    os.makedirs(imgname)
 FILENAME = filepath
-gpus = tf.config.list_physical_devices('GPU')
-tf.config.set_logical_device_configuration(
-    gpus[0],
-    [tf.config.LogicalDeviceConfiguration(memory_limit=4*1024)])
+# gpus = tf.config.list_physical_devices('GPU')
+# tf.config.set_logical_device_configuration(
+#     gpus[0],
+#     [tf.config.LogicalDeviceConfiguration(memory_limit=4*1024)])
+physical_devices = tf.config.list_physical_devices('GPU')
+try:
+  # os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+  tf.config.experimental.set_memory_growth(physical_devices[0], True)
+  # tf.config.experimental.set_memory_growth(physical_devices[1], True)
+except:
+  # Invalid device or cannot modify virtual devices once initialized.
+  pass
 dataset = tf.data.TFRecordDataset(filepath, compression_type='') #load这个要20G
 
 for data in dataset:
@@ -113,7 +126,7 @@ plt.figure(figsize=(25, 20))
 
 for index, image in enumerate(frame.images):
   image_show(image.image, open_dataset.CameraName.Name.Name(image.name), [3, 3, index+1])
-# plt.show()
+plt.show()
 
 
 # visualize the range info
@@ -150,7 +163,7 @@ def show_range_image(range_image, layout_index_start = 1):
   """
   range_image_tensor = tf.convert_to_tensor(range_image.data)
   range_image_tensor = tf.reshape(range_image_tensor, range_image.shape.dims)
-  lidar_image_mask = tf.greater_equal(range_image_tensor, 0)
+  lidar_image_mask = tf.math.greater_equal(range_image_tensor, 0)
   range_image_tensor = tf.where(lidar_image_mask, range_image_tensor,
                                 tf.ones_like(range_image_tensor) * 1e10)
   range_image_range = range_image_tensor[...,0] 
@@ -527,7 +540,7 @@ depth_colored = cv2.applyColorMap(output,cv2.COLORMAP_MAGMA)
 # fig3.savefig(ops.join(save_dir, new_name.replace("/", "_")))
 # save_dir='/home/wzh/study/github/bev/BEVDepth'
 # save_dir2= os.path.join(save_dir, "depth")
-cv2.imwrite('depth.png', depth_colored)
+cv2.imwrite(os.path.join(imgname,'gt.png'), depth_colored)
 # cv2.imwrite(ops.join(save_dir2, 'depth.png'), depth_colored)
 print('raw depth generated!')
 #效果很差，需要改参数
@@ -574,13 +587,16 @@ depth['device']= torch.device("cuda" if torch.cuda.is_available() else "cpu")
 depth['model'] = torch.hub.load("intel-isl/MiDaS", "DPT_Hybrid").to(depth['device']).eval() #网不好就用不了,特别离谱
 depth['transforms'] = torch.hub.load("intel-isl/MiDaS", "transforms").dpt_transform # MiDaS v2.1 - 应该用large的变换  
 import os.path as ops
-
+from PIL import Image
 model = depth['model']
 device = depth['device']
 #去找一下对应的原始图片！
 inputs = tf.image.decode_jpeg(images[0].image) #这是某一帧的中间图片
+
 img_np=inputs.numpy() #转为numpy
 img_torch = torch.from_numpy(img_np)
+img = Image.fromarray(img_np)
+img.save(os.path.join(imgname,'img.png'))
 # input = cv2.imread(img_path)
 # input = cv2.warpPerspective(input, self.H_crop, (self.resize_w, self.resize_h))
 # # img = img.astype(np.float) / 255
@@ -671,7 +687,7 @@ cv2.imwrite('depth_pred_fixed.png', depth_colored)
 # if not os.path.exists(save_dir2):
 #     os.makedirs(save_dir2)
 # cv2.imwrite(ops.join(save_dir2, new_name.replace("/", "_")), depth_colored)
-cv2.imwrite('depth_pred.png', depth_colored)
+# cv2.imwrite(f'{imgname}_gt.png', depth_colored)
 
 
 # 把这个reversed_normalized和上面的ouput进行比较然后输出
@@ -718,22 +734,46 @@ def vectorized_constrain(reversed_normalized, output, threshold=0.2):
     return result
 
 # 设置误差阈值（20%）
-ERROR_THRESHOLD = 0.9  # 20% relative error
+ERROR_THRESHOLD = 0.5  # 20% relative error
 
 # 设置最大深度（用于可视化）
 MAX_DEPTH = 148.0  # LiDAR最大探测距离
 
 constrained_depth = vectorized_constrain(reversed_normalized, output, ERROR_THRESHOLD)
+import numpy as np
+mask = (output == 0)
+h, w = output.shape
+for y, x in zip(*np.where(mask)):
+    found = False
+    for dy in [-1, 0, 1]:
+        for dx in [-1, 0, 1]:
+            if dy == 0 and dx == 0:
+                continue
+            ny, nx = y + dy, x + dx
+            if 0 <= ny < h and 0 <= nx < w and output[ny, nx] != 0:
+                constrained_depth[y, x] = constrained_depth[ny, nx]
+                found = True
+                break
+        if found:
+            break
 depth_colored = cv2.applyColorMap(constrained_depth , cv2.COLORMAP_MAGMA)
 
 # 保存结果
-cv2.imwrite('depth_pred_fixed2.png', depth_colored)
+cv2.imwrite(os.path.join(imgname,'pred.png'), depth_colored)
 
 
 depth_colored = cv2.applyColorMap(reversed_normalized , cv2.COLORMAP_MAGMA)
 
 # 保存结果
 cv2.imwrite('depth_pred_fixed.png', depth_colored)
+
+sky_mask = (output == 0)
+constrained_dpeth_refer = constrained_depth.copy()
+constrained_dpeth_refer[sky_mask] = 0
+depth_colored = cv2.applyColorMap(constrained_dpeth_refer , cv2.COLORMAP_MAGMA)
+
+# 保存结果
+cv2.imwrite(os.path.join(imgname,'pred_refer.png'), depth_colored)
 
 
 
@@ -800,10 +840,10 @@ def linear_alignment(source, reference, mask):
 output2_depth = disparity_to_depth(output2.numpy())
 
 # 2. 直方图对齐（推荐）
-output2_aligned = align_histograms(output2_depth, output.numpy(), sky_mask)
+output2_aligned = align_histograms(output2_depth, output, sky_mask)
 
 # 3. 可选：线性优化
-output2_final = linear_alignment(output2_aligned, output.numpy(), sky_mask)
+output2_final = linear_alignment(output2_aligned, output, sky_mask)
 
 # 4. 保存结果
 np.save('output2_aligned.npy', output2_final)
