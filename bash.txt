@@ -1,0 +1,19 @@
+export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64\${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+
+export PATH=/usr/local/bin:/usr/local/openmpi/bin:/usr/local/cuda/bin:/home/wzh/.local/bin:/home/wzh/anaconda3/bin:/home/wzh/anaconda3/condabin:/home/wzh/.local/bin:/usr/local/sbin:/usr/local/bin:/>
+export LD_LIBRARY_PATH=/usr/local/lib:/usr/local/openmpi/lib:/usr/local/cuda-11.7/lib64${LD_LIBRARY_PATH:+:/usr/local/cuda-11.7/lib64${LD_LIBRARY_PATH:+:}}
+
+export PATH=/usr/local/cuda-11.0/bin${PATH:+:${PATH}}
+export LD_LIBRARY_PATH=/usr/local/cuda-11.0/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+
+https://developer.nvidia.com/downloads/compute/cudnn/secure/8.9.7/local_installers/11.x/cudnn-linux-x86_64-8.9.7.29_cuda11-archive.tar.xz/
+wget http://developer.download.nvidia.com/compute/redist/cudnn/v8.9.7/cudnn-11.x-linux-x64-v8.9.7.29.tgz
+
+tar -xf cudnn-linux-x86_64-8.9.7.29_cuda11-archive.tar.xz
+ 
+sudo cp cudnn-linux-x86_64-8.9.7.29_cuda11-archive/include/cudnn.h /usr/local/cuda-11.0/include
+sudo cp cudnn-linux-x86_64-8.9.7.29_cuda11-archive/lib/libcudnn* /usr/local/cuda-11.0/lib64*
+ 
+sudo chmod a+r /usr/local/cuda-11.0/include/cudnn.h 
+sudo chmod a+r /usr/local/cuda-11.0/lib64/libcudnn*

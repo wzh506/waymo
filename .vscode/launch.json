@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Python: test.py",
+        "type": "debugpy-old",
+        "request": "launch",
+        "program": "/home/wzh/study/github/3D_lane_detection/waymo/waymo-open-dataset/test.py",
+        "console": "integratedTerminal",
+        "justMyCode": false
+      }
+    ]
+  }
