@@ -28,8 +28,8 @@ def image_show(data, name, layout, cmap=None):
 
 # FILENAME = 'tutorial/frames'
 # TODO: Change this to your own setting
-# filepath = '/media/wzh/datasets/openlane/waymo/segment-11392401368700458296_1086_429_1106_429_with_camera_labels.tfrecord'
-filepath= 'segment-11392401368700458296_1086_429_1106_429_with_camera_labels.tfrecord'
+filepath = '/media/wzh/datasets/openlane/waymo/segment-11392401368700458296_1086_429_1106_429_with_camera_labels.tfrecord'
+# filepath= 'segment-11392401368700458296_1086_429_1106_429_with_camera_labels.tfrecord'
 FILENAME = filepath
 gpus = tf.config.list_physical_devices('GPU')
 tf.config.set_logical_device_configuration(
@@ -517,11 +517,12 @@ gt_depths_tmp = F.one_hot(gt_depths.long(),#转换为整数,深度是多少那�
                             -1, depth_channels + 1)[:, 1:] #depth channanel中只有一个是1
 #torch.set_printoptions(threshold=np.inf)
 import cv2
-output=gt_depths[0]
+output_gt=gt_depths[0]
 # maximum = np.max(output)
 # minimum = np.min(output)
 # depth_map = output/maximum #用最大值做归一化,但是不需要
-depth_colored = cv2.applyColorMap(cv2.normalize(output.cpu().numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U),cv2.COLORMAP_MAGMA)
+output=cv2.normalize(output_gt.cpu().numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+depth_colored = cv2.applyColorMap(output,cv2.COLORMAP_MAGMA)
 # print("save to", ops.join(save_dir, new_name.replace("/", "_")))
 # fig3.savefig(ops.join(save_dir, new_name.replace("/", "_")))
 # save_dir='/home/wzh/study/github/bev/BEVDepth'
@@ -530,6 +531,34 @@ cv2.imwrite('depth.png', depth_colored)
 # cv2.imwrite(ops.join(save_dir2, 'depth.png'), depth_colored)
 print('raw depth generated!')
 #效果很差，需要改参数
+
+
+# 定义固定范围
+MAX_LIDAR_DEPTH = output_gt.max().numpy()  # 单位：米
+
+# 自定义归一化函数
+def lidar_normalize(depth_map, max_depth=MAX_LIDAR_DEPTH):
+    # 截断异常值
+    depth_clipped = np.clip(depth_map, 0, max_depth)
+    
+    # 线性映射到 [0,255]
+    normalized = (depth_clipped / max_depth) * 255
+    
+    # 转换为 uint8
+    return normalized.astype(np.uint8)
+  
+# 改进后的颜色映射
+def apply_colormap(depth_map, colormap=cv2.COLORMAP_MAGMA):
+    # 1. 固定范围归一化
+    normalized = lidar_normalize(depth_map)
+    
+    # 2. 关键反转（根据需求选择）
+    reversed_normalized = 255-normalized  # 反转视差图
+    
+    # 3. 应用颜色映射
+    return cv2.applyColorMap(reversed_normalized, colormap)
+
+
 
 
 #上面这是GT，下面利用模型来进行预测，然后进行masked
@@ -613,14 +642,28 @@ fig = plt.figure()
 plt.imshow(output2)
 path_part, dot, ext = img_name.rpartition('.')
 new_name = f"{path_part}_infer_depth.png" #把后缀改为pdf，否则用{ext}# 保持为
-maximum = np.max(output2)
-minimum = np.min(output2)
+# maximum = np.max(output2)
+# minimum = np.min(output2)
 # depth_map = output/maximum #用最大值做归一化,但是不需要
-depth_colored = cv2.applyColorMap(cv2.normalize(output2.numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U),cv2.COLORMAP_MAGMA)
-#这里这个注意和上面的output做对比
 
-output_gt = cv2.normalize(output.numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-output_pred = cv2.normalize(output2.numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+#                 原来颜色保存是视差图的方式，现在修改
+# depth_colored = cv2.applyColorMap(cv2.normalize(output2.numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U),cv2.COLORMAP_MAGMA)
+# #这里这个注意和上面的output做对比
+
+# output_gt = cv2.normalize(output.numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+# output_pred = cv2.normalize(output2.numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+
+
+normalized = cv2.normalize(output2.numpy(), None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+
+# 2. 关键反转步骤（核心修复）
+reversed_normalized = 255 - normalized  # 反转图像
+
+# 3. 应用颜色映射
+depth_colored = cv2.applyColorMap(reversed_normalized, cv2.COLORMAP_MAGMA)
+
+# 保存结果
+cv2.imwrite('depth_pred_fixed.png', depth_colored)
 
 # print("save to", ops.join(save_dir, new_name.replace("/", "_")))
 # fig3.savefig(ops.join(save_dir, new_name.replace("/", "_")))
@@ -631,7 +674,89 @@ output_pred = cv2.normalize(output2.numpy(), None, 0, 255, cv2.NORM_MINMAX, dtyp
 cv2.imwrite('depth_pred.png', depth_colored)
 
 
-#
+# 把这个reversed_normalized和上面的ouput进行比较然后输出
 
+####################################################
+#output和output2
+#
+sky_mask = (output == 0)  # True表示天空区域
+def disparity_to_depth(disparity_map, max_depth=147.0):
+    # 避免除零
+    disparity_map = np.clip(disparity_map, 1e-6, None)
+    
+    # 视差转深度（非线性变换）
+    depth_map = 1.0 / disparity_map
+    
+    # 缩放到LiDAR范围
+    depth_map = depth_map * (max_depth / depth_map.max())
+    
+    return depth_map
+  
+from skimage import exposure
+
+def align_histograms(source, reference, mask):
+    # 提取有效区域
+    src_valid = source[~mask]
+    ref_valid = reference[~mask]
+    
+    # 计算直方图匹配函数
+    aligned = exposure.match_histograms(
+        source[..., np.newaxis], 
+        reference[..., np.newaxis], 
+        # multichannel=True, 
+        # mask=~mask
+    )[..., 0]
+    
+    # 保留天空区域
+    return np.where(mask, source, aligned)
+  
+from sklearn.linear_model import LinearRegression
+
+def linear_alignment(source, reference, mask):
+    # 提取有效像素对
+    X = source[~mask].reshape(-1, 1)
+    y = reference[~mask].reshape(-1, 1)
+    
+    # 拟合线性模型
+    model = LinearRegression()
+    model.fit(X, y)
+    
+    # 应用变换
+    aligned = model.predict(source.reshape(-1, 1)).reshape(source.shape)
+    
+    # 保留天空区域
+    return np.where(mask, source, aligned)
+  
+# 1. 视差转深度
+output2_depth = disparity_to_depth(output2.numpy())
+
+# 2. 直方图对齐（推荐）
+output2_aligned = align_histograms(output2_depth, output.numpy(), sky_mask)
+
+# 3. 可选：线性优化
+output2_final = linear_alignment(output2_aligned, output.numpy(), sky_mask)
+
+# 4. 保存结果
+np.save('output2_aligned.npy', output2_final)
+
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(15, 5))
+plt.subplot(131)
+plt.title("LiDAR GT")
+plt.imshow(output, cmap='viridis')
+
+plt.subplot(132)
+plt.title("Original MiDaS")
+plt.imshow(output2_depth, cmap='viridis')
+
+plt.subplot(133)
+plt.title("Aligned Depth")
+plt.imshow(output2_final, cmap='viridis')
+
+plt.tight_layout()
+plt.savefig('depth_comparison.png')
+  
 
 
