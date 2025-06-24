@@ -30,7 +30,7 @@ def image_show(data, name, layout, cmap=None):
 # FILENAME = 'tutorial/frames'
 # TODO: Change this to your own setting
 # filepath = '/media/wzh/datasets/openlane/waymo/segment-11392401368700458296_1086_429_1106_429_with_camera_labels.tfrecord'
-filepath= 'individual_files_validation_segment-18305329035161925340_4466_730_4486_730_with_camera_labels.tfrecord'
+filepath= 'individual_files_validation_segment-17791493328130181905_1480_000_1500_000_with_camera_labels.tfrecord'
 imgname= filepath.rsplit('.', 1)[0]
 imgname = os.path.join('Depth', imgname) #保存的文件夹
 if not os.path.exists(imgname):
@@ -42,9 +42,9 @@ FILENAME = filepath
 #     [tf.config.LogicalDeviceConfiguration(memory_limit=4*1024)])
 physical_devices = tf.config.list_physical_devices('GPU')
 try:
-  # os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+  os.environ["CUDA_VISIBLE_DEVICES"] = "1"
   tf.config.experimental.set_memory_growth(physical_devices[0], True)
-  # tf.config.experimental.set_memory_growth(physical_devices[1], True)
+  tf.config.experimental.set_memory_growth(physical_devices[1], True)
 except:
   # Invalid device or cannot modify virtual devices once initialized.
   pass
@@ -734,7 +734,7 @@ def vectorized_constrain(reversed_normalized, output, threshold=0.2):
     return result
 
 # 设置误差阈值（20%）
-ERROR_THRESHOLD = 0.5  # 20% relative error
+ERROR_THRESHOLD = 2  # 20% relative error
 
 # 设置最大深度（用于可视化）
 MAX_DEPTH = 148.0  # LiDAR最大探测距离
