@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 
-file = "/home/zhaohui1.wang/github/datasets/nuscenes/samples/LIDAR_TOP/n008-2018-08-01-15-16-36-0400__LIDAR_TOP__1533151603547590.pcd.bin"
+file = "/home/zhaohui1.wang/github/datasets/nuscenes/samples/LIDAR_TOP/n015-2018-07-24-11-22-45+0800__LIDAR_TOP__1532402927647951.pcd.bin"
 
 # [x, y, z, intensity, ring index]
 pc = np.frombuffer(open(file, "rb").read(), dtype=np.float32)
@@ -34,6 +34,6 @@ for ix, iy, iz in zip(x, y, z):
     if ix >= 0 and ix < image_size and iy >= 0 and iy < image_size:
         image[iy, ix] = 255, 255, 255 #有物体就设为？
 
-cv2.imwrite("pointcloud.jpg", image)
+cv2.imwrite("pointcloud.png", image)
 # cv2.imshow("image", image)
 # cv2.waitKey(0)

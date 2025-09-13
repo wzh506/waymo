@@ -12,4 +12,5 @@ arr[::4] = x
 arr[1::4] = y
 arr[2::4] = z
 arr[3::4] = intensity
-arr.astype('float32').tofile('kitti.bin')
+file_name = file.split("/")[-1]
+arr.astype('float32').tofile(f'kitti_{file_name}')
